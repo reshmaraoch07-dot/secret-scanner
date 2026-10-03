@@ -3,6 +3,6 @@
 
 username = "Student"
 age = 20
-password = "mypassword123"
+
 
 print(f"Welcome to Secret Scanner Demo, {username}!")

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Scanner — DevSecOps Code Security</title>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="navbar">
+            <div class="logo-group">
+                <div class="shield-icon">🔐</div>
+                <div class="title-meta">
+                    <h1>SECRET SCANNER</h1>
+                    <span class="subtitle">DevSecOps Automated Credentials & Secret Detection</span>
+                </div>
+            </div>
+            <div class="nav-badges">
+                <span class="badge badge-ci"><span class="pulse-dot"></span> GitHub Actions Ready</span>
+                <span class="badge badge-version">v1.0.0</span>
+            </div>
+        </header>
+
+        <!-- SUB HEADER / TABS -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="tab-scanner">
+                <span class="tab-icon">🔍</span> Security Scanner
+            </button>
+            <button class="tab-btn" data-tab="tab-history">
+                <span class="tab-icon">📜</span> Scan History (<span id="history-count">{{ history|length }}</span>)
+            </button>
+            <button class="tab-btn" data-tab="tab-demo">
+                <span class="tab-icon">🚀</span> DevSecOps Guide & Demo
+            </button>
+        </div>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="content-wrapper">
+            
+            <!-- TAB 1: SCANNER -->
+            <section id="tab-scanner" class="tab-pane active">
+                <div class="hero-section">
+                    <h2>Secure Your Code Before Deployment</h2>
+                    <p>Detect accidentally exposed passwords, API keys, tokens, AWS keys, and database credentials before pushing code to GitHub.</p>
+                </div>
+
+                <!-- SCAN MODE SELECTOR -->
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="switchScanMode('upload')">📁 Upload Files</button>
+                    <button class="mode-btn" onclick="switchScanMode('path')">📂 Local Folder Path</button>
+                    <button class="mode-btn" onclick="switchScanMode('text')">📝 Paste Code Snippet</button>
+                </div>
+
+                <!-- MODE 1: FILE UPLOAD -->
+                <div id="mode-upload" class="scan-card mode-content active">
+                    <div class="dropzone" id="dropzone">
+                        <div class="drop-icon">📤</div>
+                        <h3>Drag & Drop Source Code Files Here</h3>
+                        <p>Supports <code>.py</code>, <code>.js</code>, <code>.java</code>, <code>.c</code>, <code>.cpp</code>, <code>.json</code>, <code>.env</code>, <code>.yaml</code>, <code>.txt</code> & more</p>
+                        <input type="file" id="file-input" multiple hidden>
+                        <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Browse Files</button>
+                    </div>
+
+                    <div id="file-list-preview" class="file-list-preview hidden">
+                        <h4>Selected Files (<span id="file-count">0</span>):</h4>
+                        <ul id="file-items"></ul>
+                        <div class="action-bar">
+                            <button class="btn btn-primary btn-large" onclick="startFileScan()">🚀 START SECURITY SCAN</button>
+                            <button class="btn btn-text" onclick="clearFileSelection()">Clear Files</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODE 2: PATH SCAN -->
+                <div id="mode-path" class="scan-card mode-content hidden">
+                    <div class="input-group">
+                        <label for="target-path-input">Target Directory or File Path:</label>
+                        <div class="path-input-wrapper">
+                            <input type="text" id="target-path-input" placeholder="e.g. . or /path/to/my-project" value=".">
+                            <button class="btn btn-primary" onclick="startPathScan()">🔍 Scan Directory</button>
+                        </div>
+                        <small class="help-text">Scans local files while automatically ignoring <code>.git</code>, <code>venv</code>, <code>node_modules</code>, and <code>__pycache__</code>.</small>
+                    </div>
+                </div>
+
+                <!-- MODE 3: TEXT SNIPPET -->
+                <div id="mode-text" class="scan-card mode-content hidden">
+                    <div class="input-group">
+                        <label for="snippet-text">Paste Code Content to Scan:</label>
+                        <textarea id="snippet-text" rows="8" placeholder="Paste your code or configuration here to scan..."></textarea>
+                        <div class="action-bar">
+                            <button class="btn btn-primary" onclick="startTextScan()">🔍 Scan Code Snippet</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LOADING SPINNER -->
+                <div id="scan-loading" class="scan-loading hidden">
+                    <div class="spinner"></div>
+                    <p>Scanning files and analyzing regex security patterns...</p>
+                </div>
+
+                <!-- RESULTS SECTION -->
+                <div id="scan-results-wrapper" class="scan-results-wrapper hidden">
+                    
+                    <!-- STATUS BANNER -->
+                    <div id="status-banner" class="status-banner">
+                        <div id="banner-icon" class="banner-icon"></div>
+                        <div class="banner-text">
+                            <h3 id="banner-title"></h3>
+                            <p id="banner-desc"></p>
+                        </div>
+                    </div>
+
+                    <!-- SUMMARY CARDS -->
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <span class="metric-label">Files Scanned</span>
+                            <span class="metric-value" id="res-files">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Lines Scanned</span>
+                            <span class="metric-value" id="res-lines">0</span>
+                        </div>
+                        <div class="metric-card highlight">
+                            <span class="metric-label">Total Secrets</span>
+                            <span class="metric-value" id="res-secrets">0</span>
+                        </div>
+                        <div class="metric-card severity-high">
+                            <span class="metric-label">HIGH Severity</span>
+                            <span class="metric-value" id="res-high">0</span>
+                        </div>
+                        <div class="metric-card severity-med">
+                            <span class="metric-label">MEDIUM Severity</span>
+                            <span class="metric-value" id="res-med">0</span>
+                        </div>
+                        <div class="metric-card severity-low">
+                            <span class="metric-label">LOW Severity</span>
+                            <span class="metric-value" id="res-low">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Duration</span>
+                            <span class="metric-value" id="res-duration">0 ms</span>
+                        </div>
+                    </div>
+
+                    <!-- FINDINGS TABLE & FILTER -->
+                    <div class="findings-card" id="findings-container">
+                        <div class="findings-header">
+                            <h3>Detailed Security Findings</h3>
+                            <div class="filter-controls">
+                                <button class="filter-btn active" onclick="filterFindings('ALL')">All Findings</button>
+                                <button class="filter-btn" onclick="filterFindings('HIGH')">High</button>
+                                <button class="filter-btn" onclick="filterFindings('MEDIUM')">Medium</button>
+                                <button class="filter-btn" onclick="filterFindings('LOW')">Low</button>
+                                <input type="text" id="findings-search" placeholder="Search file or type..." onkeyup="searchFindings()">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="findings-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>File</th>
+                                        <th>Line</th>
+                                        <th>Secret Type</th>
+                                        <th>Severity</th>
+                                        <th>Masked Value</th>
+                                        <th>Context Preview</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="findings-tbody">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="no-findings-msg" class="no-findings-msg hidden">
+                            <div class="check-icon">✅</div>
+                            <p>No potential secrets detected in this scan!</p>
+                        </div>
+                    </div>
+
+                    <!-- ACTION FOOTER -->
+                    <div class="results-actions">
+                        <button class="btn btn-secondary" onclick="resetScanView()">🔄 Scan Again</button>
+                        <button class="btn btn-primary" onclick="exportScanJSON()">📥 Download Report (JSON)</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: HISTORY -->
+            <section id="tab-history" class="tab-pane hidden">
+                <div class="section-header">
+                    <h2>Past Scan History</h2>
+                    <button class="btn btn-secondary btn-small" onclick="clearHistory()">🗑️ Clear History</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Scan ID</th>
+                                <th>Date / Time</th>
+                                <th>Target</th>
+                                <th>Files</th>
+                                <th>Lines</th>
+                                <th>Secrets Found</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            {% if history %}
+                                {% for item in history %}
+                                <tr>
+                                    <td>#{{ item.id }}</td>
+                                    <td>{{ item.timestamp }}</td>
+                                    <td><code>{{ item.target }}</code></td>
+                                    <td>{{ item.files_scanned }}</td>
+                                    <td>{{ item.lines_scanned }}</td>
+                                    <td><strong>{{ item.total_secrets }}</strong></td>
+                                    <td>
+                                        {% if item.passed %}
+                                            <span class="badge badge-pass">✅ Passed</span>
+                                        {% else %}
+                                            <span class="badge badge-fail">❌ Failed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr id="empty-history-row">
+                                    <td colspan="7" class="empty-msg">No scan history recorded yet. Perform a scan above!</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 3: DEVSECOPS DEMO GUIDE -->
+            <section id="tab-demo" class="tab-pane hidden">
+                <div class="guide-card">
+                    <h2>DevSecOps CI/CD Demonstration Guide</h2>
+                    <p>This project demonstrates how security scanning can be embedded directly into a DevOps CI/CD pipeline using <strong>GitHub Actions</strong>.</p>
+
+                    <div class="guide-steps">
+                        <div class="step-card">
+                            <div class="step-number">1</div>
+                            <div class="step-body">
+                                <h3>CLI Scanner Execution</h3>
+                                <p>Run the scanner in any terminal without launching Flask:</p>
+                                <pre><code>python scanner.py .</code></pre>
+                                <ul>
+                                    <li>Returns <strong>Exit Code 0</strong> if no secrets are found (Pipeline Passes).</li>
+                                    <li>Returns <strong>Exit Code 1</strong> if exposed secrets are detected (Pipeline Fails).</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="step-card">
+                            <div class="step-number">2</div>
+                            <div class="step-body">
+                                <h3>GitHub Actions Workflow</h3>
+                                <p>The file <code>.github/workflows/security-scan.yml</code> triggers on every <code>git push</code> or pull request.</p>
+                                <pre><code>name: Secret Scanner CI/CD
+on: [push, pull_request]
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover tests
+      - run: python scanner.py .</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="step-card">
+                            <div class="step-number">3</div>
+                            <div class="step-body">
+                                <h3>College Presentation Demo Steps</h3>
+                                <h4>Demo 1 — Safe Code (Pipeline Passes):</h4>
+                                <pre><code># example.py
+name = "Student"
+age = 20
+print("Welcome to Secret Scanner Demo")</code></pre>
+                                <p>Execute <code>python scanner.py .</code> &rarr; <strong style="color: var(--color-pass);">✅ SECURITY SCAN PASSED</strong></p>
+
+                                <h4>Demo 2 — Exposed Secret (Pipeline Fails):</h4>
+                                <pre><code># example.py
+name = "Student"
+password = "YOUR_EXPOSED_PASSWORD"  # Hardcoded secret!</code></pre>
+                                <p>Execute <code>python scanner.py .</code> &rarr; <strong style="color: var(--color-fail);">❌ SECURITY SCAN FAILED</strong> (Exit Code 1 blocks build)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER & DISCLAIMER -->
+        <footer class="footer">
+            <p>⚠️ <strong>Project Notice:</strong> This tool detects pattern-based credentials. It does not validate or connect to live services. Developed for College DevOps/DevSecOps Demonstration.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -332,3 +332,4 @@ Follow these simple steps during your presentation to impress evaluators:
 * Pre-commit hook git integration (`.git/hooks/pre-commit`).
 * Support for regex custom pattern files (`.secretscanner.yml`).
 * Integration with Slack/Discord webhook alerts on scan failure.
+

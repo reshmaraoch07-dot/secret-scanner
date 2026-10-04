@@ -333,3 +333,4 @@ Follow these simple steps during your presentation to impress evaluators:
 * Support for regex custom pattern files (`.secretscanner.yml`).
 * Integration with Slack/Discord webhook alerts on scan failure.
 
+

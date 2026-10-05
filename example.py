@@ -4,6 +4,7 @@
 username = "Student"
 age = 20
 
-
+password = "sjhdfgjhg@128782"
 
 print(f"Welcome to Secret Scanner Demo, {username}!")
+
